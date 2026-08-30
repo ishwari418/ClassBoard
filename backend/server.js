@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
+const achievementRoutes = require('./routes/achievements');
 const db = require('./db');
 
 dotenv.config();
@@ -14,6 +15,8 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/achievements', achievementRoutes);
+app.use('/achievements', achievementRoutes);
 app.use('/api', authRoutes);
 app.use('/', authRoutes);
 

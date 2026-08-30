@@ -7,6 +7,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('login'); // 'login', 'signup', 'dashboard'
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [userData, setUserData] = useState(null);
+  const [achievements, setAchievements] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,14 @@ function App() {
     role: 'student',
     department: '',
     class: ''
+  });
+
+  // Achievement form state
+  const [achievementForm, setAchievementForm] = useState({
+    title: '',
+    category: 'project',
+    description: '',
+    link: ''
   });
 
   useEffect(() => {
@@ -41,8 +50,10 @@ function App() {
       if (res.ok) {
         setUserData(data.user);
         setActiveTab('dashboard');
+        if (data.user.role === 'student') {
+          fetchMyAchievements(authToken);
+        }
       } else {
-        // Token invalid or expired
         setErrorMessage(data.message || 'Session expired. Please log in again.');
         logout();
       }
@@ -50,6 +61,22 @@ function App() {
       setErrorMessage('Failed to connect to backend server.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMyAchievements = async (authToken) => {
+    try {
+      const res = await fetch(`${API_BASE}/achievements/me`, {
+        headers: {
+          'Authorization': `Bearer ${authToken || token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAchievements(data.achievements || []);
+      }
+    } catch (err) {
+      console.error('Error fetching achievements:', err);
     }
   };
 
@@ -73,6 +100,9 @@ function App() {
         setUserData(data.user);
         setSuccessMessage('Logged in successfully!');
         setActiveTab('dashboard');
+        if (data.user.role === 'student') {
+          fetchMyAchievements(data.token);
+        }
       } else {
         setErrorMessage(data.message || 'Login failed.');
       }
@@ -103,6 +133,9 @@ function App() {
         setUserData(data.user);
         setSuccessMessage('Account created successfully!');
         setActiveTab('dashboard');
+        if (data.user.role === 'student') {
+          fetchMyAchievements(data.token);
+        }
       } else {
         setErrorMessage(data.message || 'Signup failed.');
       }
@@ -113,10 +146,63 @@ function App() {
     }
   };
 
+  const handleAddAchievement = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/achievements`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(achievementForm)
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccessMessage('Achievement added successfully!');
+        setAchievementForm({ title: '', category: 'project', description: '', link: '' });
+        fetchMyAchievements(token);
+      } else {
+        setErrorMessage(data.message || 'Failed to add achievement.');
+      }
+    } catch (err) {
+      setErrorMessage('Error adding achievement.');
+    }
+  };
+
+  const handleDeleteAchievement = async (id) => {
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/achievements/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccessMessage('Achievement deleted successfully.');
+        setAchievements(achievements.filter(ach => ach.id !== id));
+      } else {
+        setErrorMessage(data.message || 'Failed to delete achievement.');
+      }
+    } catch (err) {
+      setErrorMessage('Error deleting achievement.');
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken('');
     setUserData(null);
+    setAchievements([]);
     setActiveTab('login');
   };
 
@@ -152,7 +238,7 @@ function App() {
               }
             }}
           >
-            Profile (/me)
+            Dashboard
           </button>
         </div>
 
@@ -278,7 +364,7 @@ function App() {
           </form>
         )}
 
-        {/* PROTECTED DASHBOARD (/me) TAB */}
+        {/* PROTECTED DASHBOARD TAB */}
         {activeTab === 'dashboard' && userData && (
           <div className="user-profile">
             <div className="profile-header">
@@ -306,12 +392,112 @@ function App() {
               <span className="profile-value">{userData.class}</span>
             </div>
 
-            <div className="profile-row">
-              <span className="profile-label">Joined</span>
-              <span className="profile-value">
-                {userData.created_at ? new Date(userData.created_at).toLocaleDateString() : 'Just now'}
-              </span>
-            </div>
+            {/* STUDENT ACHIEVEMENTS SECTION */}
+            {userData.role === 'student' && (
+              <>
+                <h3 className="section-title">My Achievements</h3>
+
+                {achievements.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                    No achievements added yet.
+                  </p>
+                ) : (
+                  <div className="achievements-list">
+                    {achievements.map((ach) => (
+                      <div key={ach.id} className="achievement-card">
+                        <div className="achievement-header">
+                          <span className="achievement-title">{ach.title}</span>
+                          <span className={`achievement-category cat-${ach.category}`}>
+                            {ach.category}
+                          </span>
+                        </div>
+                        {ach.description && (
+                          <div className="achievement-desc">{ach.description}</div>
+                        )}
+                        <div className="achievement-footer">
+                          {ach.link ? (
+                            <a
+                              href={ach.link.startsWith('http') ? ach.link : `https://${ach.link}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="achievement-link"
+                            >
+                              🔗 View Link
+                            </a>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No link</span>
+                          )}
+                          <button
+                            className="btn-delete"
+                            onClick={() => handleDeleteAchievement(ach.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ADD ACHIEVEMENT FORM */}
+                <div className="add-achievement-box">
+                  <h4 style={{ marginBottom: '1rem', color: '#f8fafc' }}>Add New Achievement</h4>
+                  <form onSubmit={handleAddAchievement}>
+                    <div className="form-group">
+                      <label className="form-label">Title</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Winner at Hackathon 2026"
+                        value={achievementForm.title}
+                        onChange={(e) => setAchievementForm({ ...achievementForm, title: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Category</label>
+                      <select
+                        className="form-select"
+                        value={achievementForm.category}
+                        onChange={(e) => setAchievementForm({ ...achievementForm, category: e.target.value })}
+                      >
+                        <option value="project">Project</option>
+                        <option value="internship">Internship</option>
+                        <option value="certification">Certification</option>
+                        <option value="hackathon">Hackathon</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Description</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Brief summary of the achievement"
+                        value={achievementForm.description}
+                        onChange={(e) => setAchievementForm({ ...achievementForm, description: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Link (optional)</label>
+                      <input
+                        type="url"
+                        className="form-input"
+                        placeholder="https://github.com/... or credential URL"
+                        value={achievementForm.link}
+                        onChange={(e) => setAchievementForm({ ...achievementForm, link: e.target.value })}
+                      />
+                    </div>
+
+                    <button type="submit" className="btn-primary">
+                      + Add Achievement
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
 
             <button className="btn-secondary" onClick={logout}>
               Log Out
