@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS achievements (
     link VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS notices (
+    id SERIAL PRIMARY KEY,
+    teacher_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    department VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notice_reads (
+    id SERIAL PRIMARY KEY,
+    notice_id INTEGER REFERENCES notices(id) ON DELETE CASCADE,
+    student_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    read_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_notice_student_read UNIQUE (notice_id, student_id)
+);
 `;
 
 const setupDatabase = async () => {

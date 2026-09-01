@@ -20,6 +20,27 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'Role must be either "teacher" or "student".' });
     }
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+
+    // Password strength validation (min 6 chars, >= 1 uppercase, >= 1 special char)
+    const hasMinLength = password.length >= 6;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password) || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+    if (!hasMinLength || !hasUpper || !hasSpecial) {
+      const missing = [];
+      if (!hasMinLength) missing.push('at least 6 characters');
+      if (!hasUpper) missing.push('at least one uppercase letter');
+      if (!hasSpecial) missing.push('at least one special character (!@#$%^&*)');
+      return res.status(400).json({
+        message: `Password must contain ${missing.join(', ')}.`
+      });
+    }
+
     // Check if user already exists
     const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     if (existingUser.rows.length > 0) {

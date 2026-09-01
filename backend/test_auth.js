@@ -10,6 +10,43 @@ async function testAuth() {
     try {
       const baseUrl = `http://localhost:${PORT}`;
 
+      // 0. Testing Validation Failures on Signup
+      console.log('\n0. Testing Signup Validation Errors...');
+      
+      // Weak password (no special char, short, no upper)
+      const weakPwdRes = await fetch(`${baseUrl}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Bad User',
+          email: 'bad@classboard.edu',
+          password: 'simple',
+          role: 'student',
+          department: 'CS',
+          class: 'CS-101'
+        })
+      });
+      console.log('Weak password signup status (expected 400):', weakPwdRes.status);
+      const weakPwdData = await weakPwdRes.json();
+      console.log('Weak password message:', weakPwdData.message);
+
+      // Invalid Email
+      const badEmailRes = await fetch(`${baseUrl}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Bad Email',
+          email: 'notanemail',
+          password: 'ValidPassword123!',
+          role: 'student',
+          department: 'CS',
+          class: 'CS-101'
+        })
+      });
+      console.log('Invalid email signup status (expected 400):', badEmailRes.status);
+      const badEmailData = await badEmailRes.json();
+      console.log('Invalid email message:', badEmailData.message);
+
       // 1. Signup Teacher
       console.log('\n1. Testing Teacher Signup...');
       const teacherSignupRes = await fetch(`${baseUrl}/signup`, {
@@ -18,7 +55,7 @@ async function testAuth() {
         body: JSON.stringify({
           name: 'Prof. Sarah Connor',
           email: 'sarah.teacher@classboard.edu',
-          password: 'TeacherPassword123',
+          password: 'TeacherPassword123!',
           role: 'teacher',
           department: 'Computer Science',
           class: 'CS-401'
@@ -40,7 +77,7 @@ async function testAuth() {
         body: JSON.stringify({
           name: 'John Connor',
           email: 'john.student@classboard.edu',
-          password: 'StudentPassword123',
+          password: 'StudentPassword123!',
           role: 'student',
           department: 'Computer Science',
           class: 'CS-401'
@@ -61,7 +98,7 @@ async function testAuth() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: 'sarah.teacher@classboard.edu',
-          password: 'TeacherPassword123'
+          password: 'TeacherPassword123!'
         })
       });
       const teacherLoginData = await teacherLoginRes.json();
@@ -84,7 +121,7 @@ async function testAuth() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: 'john.student@classboard.edu',
-          password: 'StudentPassword123'
+          password: 'StudentPassword123!'
         })
       });
       const studentLoginData = await studentLoginRes.json();

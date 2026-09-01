@@ -22,10 +22,10 @@ async function testAchievements() {
       };
 
       console.log('\n--- Creating Test Accounts ---');
-      const teacher = await createAccount('Prof. Oak', 'oak@classboard.edu', 'pass123', 'teacher', 'Science', 'Class-A');
-      const student1 = await createAccount('Ash Ketchum', 'ash@classboard.edu', 'pass123', 'student', 'Science', 'Class-A');
-      const student2ClassA = await createAccount('Misty Waterflower', 'misty@classboard.edu', 'pass123', 'student', 'Science', 'Class-A');
-      const student3ClassB = await createAccount('Brock Harrison', 'brock@classboard.edu', 'pass123', 'student', 'Science', 'Class-B');
+      const teacher = await createAccount('Prof. Oak', 'oak@classboard.edu', 'Pass123!', 'teacher', 'Science', 'Class-A');
+      const student1 = await createAccount('Ash Ketchum', 'ash@classboard.edu', 'Pass123!', 'student', 'Science', 'Class-A');
+      const student2ClassA = await createAccount('Misty Waterflower', 'misty@classboard.edu', 'Pass123!', 'student', 'Science', 'Class-A');
+      const student3ClassB = await createAccount('Brock Harrison', 'brock@classboard.edu', 'Pass123!', 'student', 'Science', 'Class-B');
 
       console.log('Teacher Token:', !!teacher.token);
       console.log('Student 1 (Class A) ID:', student1.user.id);
