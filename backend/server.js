@@ -6,6 +6,8 @@ const achievementRoutes = require('./routes/achievements');
 const noticeRoutes = require('./routes/notices');
 const db = require('./db');
 
+const seedEligibleUsers = require('./seed_eligible');
+
 dotenv.config();
 
 const app = express();
@@ -29,7 +31,14 @@ app.get('/health', (req, res) => {
 });
 
 // Start Server after DB initialization
-db.init().then(() => {
+db.init().then(async () => {
+  try {
+    await seedEligibleUsers();
+    const topEligible = await db.query('SELECT * FROM eligible_users LIMIT 5');
+    console.log('First 5 rows of eligible_users on startup:', topEligible.rows);
+  } catch (e) {
+    console.error('Error seeding/fetching eligible_users on startup:', e);
+  }
   app.listen(PORT, () => {
     console.log(`ClassBoard backend running on http://localhost:${PORT}`);
   });

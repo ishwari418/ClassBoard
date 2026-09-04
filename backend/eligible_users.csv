@@ -1,0 +1,5 @@
+name,email,department,class,role
+Alice Smith,alice.smith@classboard.edu,CS,CS-101,student
+Bob Jones,bob.jones@classboard.edu,AIDS,AIDS-202,student
+Prof. Carol Danvers,carol.danvers@classboard.edu,CS,CS-101,teacher
+Prof. David Banner,david.banner@classboard.edu,IT,IT-301,teacher

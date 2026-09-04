@@ -51,10 +51,12 @@ const CategoryIcon = ({ type }) => {
 const Dashboard = () => {
   const [userData, setUserData] = useState(null);
   const [achievements, setAchievements] = useState([]);
+  const [pendingAchievements, setPendingAchievements] = useState([]);
   const [notices, setNotices] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [reviewFeedback, setReviewFeedback] = useState({});
 
   // Forms state
   const [achievementForm, setAchievementForm] = useState({
@@ -117,6 +119,20 @@ const Dashboard = () => {
     }
   }, [token]);
 
+  const fetchPendingAchievements = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/achievements/pending`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPendingAchievements(data.pending_achievements || []);
+      }
+    } catch (err) {
+      console.error('Error fetching pending achievements:', err);
+    }
+  }, [token]);
+
   const fetchUserProfile = useCallback(async () => {
     setLoading(true);
     setErrorMessage('');
@@ -132,6 +148,8 @@ const Dashboard = () => {
         fetchNotices(data.user.role);
         if (data.user.role === 'student') {
           fetchMyAchievements();
+        } else if (data.user.role === 'teacher') {
+          fetchPendingAchievements();
         }
       } else {
         localStorage.removeItem('token');
@@ -256,6 +274,36 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Achievement delete error:', err);
       setErrorMessage('Error deleting achievement.');
+    }
+  };
+
+  const handleReviewAchievement = async (id, status) => {
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/achievements/${id}/review`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status,
+          teacher_feedback: reviewFeedback[id] || ''
+        })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccessMessage(`Achievement ${status} successfully!`);
+        setPendingAchievements(pendingAchievements.filter((ach) => ach.id !== id));
+      } else {
+        setErrorMessage(data.message || 'Failed to review achievement.');
+      }
+    } catch (err) {
+      console.error('Review achievement error:', err);
+      setErrorMessage('Error reviewing achievement.');
     }
   };
 
@@ -487,6 +535,95 @@ const Dashboard = () => {
               </div>
             )}
 
+            {/* TEACHER REVIEW PENDING ACHIEVEMENTS SECTION */}
+            {userData.role === 'teacher' && (
+              <>
+                <h3 className="section-title">
+                  <span>Pending Student Achievements Review</span>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+                    {pendingAchievements.length} {pendingAchievements.length === 1 ? 'Pending Review' : 'Pending Reviews'}
+                  </span>
+                </h3>
+
+                {pendingAchievements.length === 0 ? (
+                  <div className="empty-state">
+                    No pending student achievements to review in your department.
+                  </div>
+                ) : (
+                  <div className="cards-grid">
+                    {pendingAchievements.map((ach) => (
+                      <div key={ach.id} className="achievement-card">
+                        <div>
+                          <div className="achievement-header">
+                            <div className="achievement-title-area">
+                              <div className={`category-icon-box ${ach.category}`}>
+                                <CategoryIcon type={ach.category} />
+                              </div>
+                              <span className="achievement-title">{ach.title}</span>
+                            </div>
+                            <span className={`achievement-category cat-${ach.category}`}>
+                              {ach.category}
+                            </span>
+                          </div>
+
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary, #475569)' }}>
+                            <strong>Student:</strong> {ach.student_name} ({ach.student_class})
+                          </div>
+
+                          {ach.description && (
+                            <div className="achievement-desc" style={{ marginTop: '0.5rem' }}>
+                              {ach.description}
+                            </div>
+                          )}
+
+                          {ach.link && (
+                            <div style={{ marginTop: '0.5rem' }}>
+                              <a
+                                href={ach.link.startsWith('http') ? ach.link : `https://${ach.link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="achievement-link"
+                              >
+                                View Submitted Resource
+                              </a>
+                            </div>
+                          )}
+
+                          <div style={{ marginTop: '0.75rem' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder="Optional feedback for student..."
+                              value={reviewFeedback[ach.id] || ''}
+                              onChange={(e) => setReviewFeedback({ ...reviewFeedback, [ach.id]: e.target.value })}
+                              style={{ fontSize: '0.8125rem', padding: '0.4rem 0.6rem' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="achievement-footer" style={{ marginTop: '0.75rem', gap: '0.5rem' }}>
+                          <button
+                            className="btn-primary"
+                            style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', padding: '0.35rem 0.75rem', fontSize: '0.8125rem' }}
+                            onClick={() => handleReviewAchievement(ach.id, 'approved')}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="btn-delete"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8125rem' }}
+                            onClick={() => handleReviewAchievement(ach.id, 'rejected')}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
             {/* STUDENT ACHIEVEMENTS SECTION */}
             {userData.role === 'student' && (
               <>
@@ -522,6 +659,29 @@ const Dashboard = () => {
                               {ach.description}
                             </div>
                           )}
+
+                          {/* STATUS & FEEDBACK DISPLAY */}
+                          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                textTransform: 'capitalize',
+                                backgroundColor: ach.status === 'approved' ? '#dcfce7' : ach.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+                                color: ach.status === 'approved' ? '#166534' : ach.status === 'rejected' ? '#991b1b' : '#92400e'
+                              }}>
+                                {ach.status || 'pending'}
+                              </span>
+                            </div>
+                            {ach.teacher_feedback && (
+                              <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-secondary, #475569)' }}>
+                                Teacher Feedback: "{ach.teacher_feedback}"
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="achievement-footer">

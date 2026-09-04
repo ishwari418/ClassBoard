@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:5000';
-const DEPARTMENTS = ['CS', 'AIDS', 'AIML', 'IT', 'ENTC'];
 
 const Signup = () => {
-  const [role, setRole] = useState('student');
-  const [department, setDepartment] = useState('CS');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userClass, setUserClass] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const [matchedUser, setMatchedUser] = useState(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -38,13 +36,45 @@ const Signup = () => {
     return missing;
   };
 
+  const checkEligibility = async (emailToVerify) => {
+    if (!validateEmail(emailToVerify)) {
+      setMatchedUser(null);
+      return;
+    }
+
+    setCheckingEmail(true);
+    setEmailError('');
+    setErrorMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/check-eligibility?email=${encodeURIComponent(emailToVerify.trim())}`);
+      const data = await res.json();
+
+      if (res.ok && data.eligible) {
+        setMatchedUser(data.user);
+      } else {
+        setMatchedUser(null);
+        setEmailError(data.message || 'This email is not registered with your institution.');
+      }
+    } catch (err) {
+      console.error('Eligibility check error:', err);
+      setMatchedUser(null);
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
   const handleEmailChange = (e) => {
     const val = e.target.value;
     setEmail(val);
-    if (emailError) {
-      if (validateEmail(val)) {
-        setEmailError('');
-      }
+    setMatchedUser(null);
+    setEmailError('');
+    setErrorMessage('');
+  };
+
+  const handleEmailBlur = () => {
+    if (email.trim() && validateEmail(email)) {
+      checkEligibility(email);
     }
   };
 
@@ -80,6 +110,13 @@ const Signup = () => {
       hasError = true;
     }
 
+    if (!matchedUser && !hasError) {
+      await checkEligibility(email);
+      if (!matchedUser) {
+        return;
+      }
+    }
+
     if (hasError) return;
 
     setLoading(true);
@@ -89,12 +126,8 @@ const Signup = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
           email: email.trim(),
-          password,
-          role,
-          department,
-          class: userClass.trim()
+          password
         })
       });
       const data = await res.json();
@@ -141,55 +174,22 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSignup} noValidate>
-          {/* ROLE SELECTOR */}
           <div className="form-group">
-            <label className="form-label">Select Role</label>
-            <div className="role-selector">
-              <div
-                className={`role-option ${role === 'student' ? 'selected' : ''}`}
-                onClick={() => setRole('student')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                  <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-                </svg>
-                Student
-              </div>
-              <div
-                className={`role-option ${role === 'teacher' ? 'selected' : ''}`}
-                onClick={() => setRole('teacher')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                Teacher
-              </div>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Jane Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">Official Email Address</label>
             <input
               type="email"
               className={`form-input ${emailError ? 'input-error' : ''}`}
               placeholder="user@classboard.edu"
               value={email}
               onChange={handleEmailChange}
+              onBlur={handleEmailBlur}
               required
             />
+            {checkingEmail && (
+              <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                Verifying institutional eligibility...
+              </small>
+            )}
             {emailError && (
               <div className="field-error-text">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -201,6 +201,26 @@ const Signup = () => {
               </div>
             )}
           </div>
+
+          {matchedUser && (
+            <div style={{
+              background: 'var(--bg-secondary, #f8fafc)',
+              border: '1px solid var(--border-color, #e2e8f0)',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--primary, #3b82f6)' }}>
+                ✓ Verified Institution Profile
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                <div><strong>Name:</strong> {matchedUser.name}</div>
+                <div><strong>Role:</strong> <span style={{ textTransform: 'capitalize' }}>{matchedUser.role}</span></div>
+                <div><strong>Department:</strong> {matchedUser.department}</div>
+                <div><strong>Class:</strong> {matchedUser.class}</div>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Password</label>
@@ -245,36 +265,8 @@ const Signup = () => {
             )}
           </div>
 
-          {/* DEPARTMENT PILL SELECTOR FOR BOTH ROLES */}
-          <div className="form-group">
-            <label className="form-label">Department</label>
-            <div className="dept-pills-grid">
-              {DEPARTMENTS.map((dept) => (
-                <div
-                  key={dept}
-                  className={`dept-pill ${department === dept ? 'selected' : ''}`}
-                  onClick={() => setDepartment(dept)}
-                >
-                  {dept}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">{role === 'teacher' ? 'Assigned Class / Division' : 'Class / Grade'}</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder={role === 'teacher' ? 'e.g. CS-101 or Division A' : 'e.g. CS-101'}
-              value={userClass}
-              onChange={(e) => setUserClass(e.target.value)}
-              required
-            />
-          </div>
-
           <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.75rem' }}>
-            {loading ? 'Creating Account...' : `Sign Up as ${role === 'teacher' ? 'Teacher' : 'Student'}`}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 
